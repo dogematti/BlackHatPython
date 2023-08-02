@@ -1,3 +1,4 @@
+##OH Dogematti's done it again :D
 #!/bin/bash
 
 # Function to check if a command exists
