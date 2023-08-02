@@ -27,6 +27,12 @@ if [ "$(uname)" == "Darwin" ]; then
 
   # Set the PATH for ProxyChains on macOS
   export PATH="/opt/homebrew/Cellar/proxychains-ng/4.16/bin/:$PATH"
+
+  # Add the alias for macOS
+  echo 'alias proxy_flood="proxychains4 python3 flood.py"' >> ~/.zshrc
+
+  # Make "flood.py" executable
+  chmod +x flood.py
 elif [ "$(uname)" == "Linux" ]; then
   # Linux (Debian/Ubuntu)
   if command_exists apt; then
@@ -48,14 +54,16 @@ elif [ "$(uname)" == "Linux" ]; then
 
   # Set the PATH for ProxyChains on Linux
   export PATH="/usr/bin/:$PATH"
+
+  # Add the alias for Linux
+  echo 'alias proxy_flood="proxychains python3 flood.py"' >> ~/.bashrc
+
+  # Make "flood.py" executable
+  chmod +x flood.py
 else
   echo "Unsupported operating system. Please install ProxyChains manually."
   exit 1
 fi
 
-# Make "flood.py" executable
-chmod +x flood.py
-
-# Execute Python script "flood.py" (assuming "flood.py" is in the same directory as this script)
-# Replace "python" with "python3" if required.
-python3 flood.py --help
+# Execute Zsh or Bash
+exec "${SHELL}"
