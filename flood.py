@@ -5,6 +5,17 @@ import subprocess
 import time
 import concurrent.futures
 import argparse
+import requests
+# Added HTTP GET requests to this stress-test-tool.
+def http_get_request(target_url, num_requests, delay, verbose=False):
+    for _ in range(num_requests):
+        try:
+            response = requests.get(target_url)
+            if verbose:
+                print(f"HTTP GET request to {target_url} returned status code: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            print(f"Failed to send HTTP GET request to {target_url}: {e}")
+        time.sleep(delay)
 
 def send_udp_packet(target_host, target_port, packet_size, verbose=False):
     # Function to send a UDP packet
@@ -40,6 +51,10 @@ def parse_args():
     parser.add_argument("--tcp_flood_handshake", action="store_true", help="Perform TCP handshake flood")
     parser.add_argument("--verbose", action="store_true", help="Print verbose output")
     parser.add_argument("--noob", action="store_true", help="Run the script in noob mode")
+    parser.add_argument("--http-url", help="Target URL for HTTP GET requests")
+    parser.add_argument("--http-requests", type=int, default=100, help="Number of HTTP GET requests to send")
+    parser.add_argument("--http-delay", type=float, default=0.1, help="Delay between HTTP GET requests (seconds)")
+
     return parser.parse_args()
 
 def prompt_for_flags():
@@ -76,6 +91,14 @@ def print_updated_command():
         else:
             # For other flags, add the flag name and its value
             command += f"--{flag} {value} "
+    if args.test_type == "http":
+        if args.http_url:
+                command += f"--http-url {args.http_url} "
+        if args.http_requests:
+                command += f"--http-requests {args.http_requests} "
+        if args.http_delay:
+                command += f"--http-delay {args.http_delay} "
+
 
     print(f"Updated command: {command}")
 
@@ -96,6 +119,9 @@ if __name__ == "__main__":
         udp_stress_test(args.target_host, args.target_port_udp, args.packet_size, args.num_packets_udp, args.delay, args.num_threads)
         parallel_ping(args.target_host, args.num_packets_icmp, args.timeout_icmp, args.num_threads)
         tcp_stress_test(args.target_host, args.target_port_tcp, args.num_connections_tcp, args.num_threads)
+        http_get_request(args.http_url, args.http_requests, args.http_delay, args.verbose)
+    elif args.test_type == "http":
+        http_get_request(args.http_url, args.http_requests, args.http_delay, args.verbose)
     elif args.test_type == "udp":
         udp_stress_test(args.target_host, args.target_port_udp, args.packet_size, args.num_packets_udp, args.delay, args.num_threads)
     elif args.test_type == "icmp":
