@@ -10,6 +10,18 @@ from aiohttp import ClientError, ClientSession
 from scapy.all import sr1, IP, ICMP, TCP, send
 from urllib.parse import urlparse
 
+# ASCII Art Section - Add your ASCII art here
+ASCII_ART = """
+ _____ __  __ __ _____ __ _____    ___ __  __     
+(_  | |__)|_ (_ (_  | |_ (_  |  __  | /  \/  \|   
+__) | | \ |____)__) | |____) |      | \__/\__/|__ 
+ __        __  __  __  __       ______            
+|__)\_/.  |  \/  \/ _ |_ |\/| /\ |  | |           
+|__) | .  |__/\__/\__)|__|  |/--\|  | |           
+                                                  
+"""
+
+
 # User Agents List with the specified user-agents added
 user_agents = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6)...",
@@ -40,24 +52,6 @@ user_agents = [
     "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:49.0) Gecko/20100101 Firefox/49.0",
 ]
 
-def logo():
-    subprocess.call(["clear"])
-    print(bcolors.CYAN + bcolors.BOLD)
-    print("""                                                                  
-     _____  _                                                     
-    |   __|| |_  ___  ___  ___  ___     ___  _ _                  
-    |__   ||  _||  _|| -_||_ -||_ -| _ | . || | |                 
-    |_____||_|  |_|  |___||___||___||_||  _||_  |                
-                                       |_|  |___|                 
-                                                                  
- _____  __ __  _    ____                              _    _    _ 
-| __  ||  |  ||_|  |    \  ___  ___  ___  _____  ___ | |_ | |_ |_|
-| __ -||_   _| _   |  |  || . || . || -_||     || .'||  _||  _|| |
-|_____|  |_|  |_|  |____/ |___||_  ||___||_|_|_||__,||_|  |_|  |_|
-                               |___|                              
- --A STRESS-TEST-TOOL
-                                                                                                                                                       
-    """)
     print(bcolors.ENDC)
 # Configure logging
 logger = logging.getLogger(__name__)
