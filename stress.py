@@ -11,7 +11,7 @@ from scapy.all import sr1, IP, ICMP, TCP, send
 from urllib.parse import urlparse
 
 # ASCII Art Section - Add your ASCII art here
-ASCII_ART = """
+ASCII_ART = r"""
  _____ __  __ __ _____ __ _____    ___ __  __     
 (_  | |__)|_ (_ (_  | |_ (_  |  __  | /  \/  \|   
 __) | | \ |____)__) | |____) |      | \__/\__/|__ 
