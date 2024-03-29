@@ -5,11 +5,12 @@ import aiohttp
 import argparse
 import random
 import logging
-from scapy.all import send
-from scapy.layers.inet import IP, ICMP, TCP
+import socket
+from aiohttp import ClientError, ClientSession
+from scapy.all import sr1, IP, ICMP, TCP, send
 from urllib.parse import urlparse
 
-# User Agents List
+# User Agents List with the specified user-agents added
 user_agents = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6)...",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.143 Safari/537.36",
@@ -40,70 +41,98 @@ user_agents = [
 ]
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-def log_verbose(message, verbose):
-    if verbose:
-        logging.info(message)
+def configure_logging(verbose=False):
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(level=level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-def get_random_user_agent():
-    return random.choice(user_agents) if user_agents else None
+async def fetch_url(session: ClientSession, url: str, headers: dict):
+    try:
+        async with session.get(url, headers=headers) as response:
+            logger.info(f"Request to {url} returned {response.status}")
+            await response.read()
+    except ClientError as e:
+        logger.error(f"Request to {url} failed: {e}")
 
-# Async version of the HTTPS GET request function
-async def async_https_get_request(target_url, num_requests, delay, verify_ssl=True, verbose=False):
-    headers = {'User-Agent': get_random_user_agent()}
-    async with aiohttp.ClientSession() as session:
-        for _ in range(num_requests):
-            try:
-                async with session.get(target_url, headers=headers, ssl=verify_ssl, timeout=10) as response:
-                    log_verbose(f"HTTPS GET request to {target_url} returned status code: {response.status}", verbose)
-                await asyncio.sleep(delay)
-            except Exception as e:
-                log_verbose(f"Failed to send HTTPS GET request to {target_url}: {e}", verbose)
+async def async_https_get_request(target_url, num_requests, headers):
+    async with ClientSession() as session:
+        tasks = [fetch_url(session, target_url, headers) for _ in range(num_requests)]
+        await asyncio.gather(*tasks)
 
-# Async version for TCP tests
-async def async_tcp_test(target_host, target_port, num_connections, verbose=False):
+async def async_tcp_test(target_host, target_port, num_connections):
     for _ in range(num_connections):
         try:
             reader, writer = await asyncio.open_connection(target_host, target_port)
-            log_verbose(f"Connected to TCP {target_host}:{target_port}", verbose)
+            logger.info(f"Connected to TCP {target_host}:{target_port}")
             writer.close()
             await writer.wait_closed()
         except Exception as e:
-            log_verbose(f"TCP connection failed to {target_host}:{target_port}: {e}", verbose)
+            logger.error(f"TCP connection to {target_host}:{target_port} failed: {e}")
 
-# Note on synchronous operations with Scapy
-# Scapy's operations for crafting and sending packets (like send, sendp) are synchronous and blocking.
-# Integrating these into asyncio's event loop can be challenging without a compatible asynchronous interface.
-# For these parts, consider running them in separate threads or processes if you need to maintain an asynchronous workflow
-# or use them as-is for simplicity, depending on your requirements.
+def send_icmp_echo(target_host, num_requests):
+    for _ in range(num_requests):
+        packet = IP(dst=target_host)/ICMP()
+        resp = sr1(packet, timeout=1, verbose=0)
+        if resp:
+            logger.info(f"ICMP Reply from {target_host}: {resp.summary()}")
+        else:
+            logger.info(f"No ICMP Reply from {target_host}")
 
-# Validation functions remain unchanged
+def send_tcp_syn(target_host, target_port, num_requests):
+    for _ in range(num_requests):
+        syn_packet = IP(dst=target_host)/TCP(dport=target_port, flags='S')
+        resp = sr1(syn_packet, timeout=1, verbose=0)
+        if resp and resp.getlayer(TCP).flags & 0x12:  # SYN/ACK flags
+            logger.info(f"Received SYN/ACK from {target_host}:{target_port}")
+            # Properly tear down the connection by sending a RST packet
+            rst_packet = IP(dst=target_host)/TCP(dport=target_port, flags='R', seq=resp.ack)
+            send(rst_packet, verbose=0)
+        else:
+            logger.info(f"No SYN/ACK from {target_host}:{target_port}")
+
 def validate_url(url):
-    # Your validation logic here
-    pass
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except:
+        return False
 
 def validate_ip(ip_address):
-    # Your validation logic here
-    pass
-
-# Async execution wrapper
-async def execute_all_tests_async(args):
-    # Adapt this to call your async functions based on command line arguments
-    pass
+    try:
+        socket.inet_aton(ip_address)
+        return True
+    except socket.error:
+        return False
 
 def parse_args():
-    # Your argparse logic here
-    pass
+    parser = argparse.ArgumentParser(description="Asynchronous Network Test Script")
+    parser.add_argument("--test_type", choices=['http', 'tcp', 'icmp', 'syn'], required=True, help="Type of test to perform")
+    parser.add_argument("--target_host", required=True, help="Target host for testing")
+    parser.add_argument("--target_port", type=int, default=80, help="Target port for testing")
+    parser.add_argument("--num_requests", type=int, default=100, help="Number of requests to send")
+    parser.add_argument("--verbose", action='store_true', help="Enable verbose logging")
+    return parser.parse_args()
 
 async def main():
-    args = parse_args()  # Ensure this is adapted for async or called appropriately
-    # Depending on args.test_type, call the appropriate async functions using await
+    args = parse_args()
+    configure_logging(args.verbose)
+    headers = {'User-Agent': get_random_user_agent()}
+
     if args.test_type == "http":
-        await async_https_get_request(args.http_url, args.http_requests, args.http_delay, args.verify_ssl, args.verbose)
+        if not validate_url(args.target_host):
+            logger.error("Invalid URL format.")
+            return
+        await async_https_get_request(args.target_host, args.num_requests, headers)
     elif args.test_type == "tcp":
-        await async_tcp_test(args.target_host, args.target_port_tcp, args.num_connections_tcp, args.verbose)
-    # Include other test types as needed
+        if not validate_ip(args.target_host):
+            logger.error("Invalid IP address format.")
+            return
+        await async_tcp_test(args.target_host, args.target_port, args.num_requests)
+    elif args.test_type == "icmp":
+        send_icmp_echo(args.target_host, args.num_requests)
+    elif args.test_type == "syn":
+        send_tcp_syn(args.target_host, args.target_port, args.num_requests)
 
 if __name__ == "__main__":
     asyncio.run(main())
