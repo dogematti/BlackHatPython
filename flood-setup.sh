@@ -27,13 +27,17 @@ if [ "$(uname)" == "Darwin" ]; then
   $SUDO brew install proxychains-ng
 
   # Set the PATH for ProxyChains on macOS
-  export PATH="/opt/homebrew/Cellar/proxychains-ng/4.16/bin/:$PATH"
+  echo 'export PATH="/opt/homebrew/Cellar/proxychains-ng/4.16/bin:$PATH"' >> ~/.zshrc
+  export PATH="/opt/homebrew/Cellar/proxychains-ng/4.16/bin:$PATH"
 
   # Add the alias for macOS
   echo 'alias proxy_flood="proxychains4 python3 flood.py"' >> ~/.zshrc
 
   # Make "flood.py" executable
   chmod +x flood.py
+
+  # Reload the shell configuration
+  source ~/.zshrc
 elif [ "$(uname)" == "Linux" ]; then
   # Linux (Debian/Ubuntu)
   if command_exists apt; then
@@ -41,30 +45,34 @@ elif [ "$(uname)" == "Linux" ]; then
     $SUDO apt update
 
     # Install ProxyChains
-    $SUDO apt install proxychains
+    $SUDO apt install -y proxychains
   elif command_exists yum; then
     # Update package lists
     $SUDO yum update
 
     # Install ProxyChains
-    $SUDO yum install proxychains
+    $SUDO yum install -y proxychains
   else
     echo "Unsupported package manager. Please install ProxyChains manually."
     exit 1
   fi
 
   # Set the PATH for ProxyChains on Linux
-  export PATH="/usr/bin/:$PATH"
+  echo 'export PATH="/usr/bin:$PATH"' >> ~/.bashrc
+  export PATH="/usr/bin:$PATH"
 
   # Add the alias for Linux
   echo 'alias proxy_flood="proxychains python3 flood.py"' >> ~/.bashrc
 
   # Make "flood.py" executable
   chmod +x flood.py
+
+  # Reload the shell configuration
+  source ~/.bashrc
 else
   echo "Unsupported operating system. Please install ProxyChains manually."
   exit 1
 fi
 
-# Execute Zsh or Bash
-exec "${SHELL}"
+# Confirm completion
+echo "Installation completed successfully. ProxyChains added to PATH and alias set."
