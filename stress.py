@@ -21,8 +21,7 @@ __) | | \ |____)__) | |____) |      | \__/\__/|__
                                                   
 """
 
-
-# User Agents List with the specified user-agents added
+# User Agents List
 user_agents = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6)...",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.143 Safari/537.36",
@@ -51,12 +50,16 @@ user_agents = [
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.143 Safari/537.36",
     "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:49.0) Gecko/20100101 Firefox/49.0",
 ]
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
 def configure_logging(verbose=False):
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(level=level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+def get_random_user_agent():
+    return random.choice(user_agents)
 
 async def fetch_url(session: ClientSession, url: str, headers: dict):
     try:
@@ -72,14 +75,17 @@ async def async_https_get_request(target_url, num_requests, headers):
         await asyncio.gather(*tasks)
 
 async def async_tcp_test(target_host, target_port, num_connections):
-    for _ in range(num_connections):
-        try:
-            reader, writer = await asyncio.open_connection(target_host, target_port)
-            logger.info(f"Connected to TCP {target_host}:{target_port}")
-            writer.close()
-            await writer.wait_closed()
-        except Exception as e:
-            logger.error(f"TCP connection to {target_host}:{target_port} failed: {e}")
+    tasks = [tcp_connection(target_host, target_port) for _ in range(num_connections)]
+    await asyncio.gather(*tasks)
+
+async def tcp_connection(target_host, target_port):
+    try:
+        reader, writer = await asyncio.open_connection(target_host, target_port)
+        logger.info(f"Connected to TCP {target_host}:{target_port}")
+        writer.close()
+        await writer.wait_closed()
+    except Exception as e:
+        logger.error(f"TCP connection to {target_host}:{target_port} failed: {e}")
 
 def send_icmp_echo(target_host, num_requests):
     for _ in range(num_requests):
@@ -106,44 +112,45 @@ def validate_url(url):
     try:
         result = urlparse(url)
         return all([result.scheme, result.netloc])
-    except:
+    except Exception as e:
+        logger.error(f"URL validation error: {e}")
         return False
 
 def validate_ip(ip_address):
     try:
         socket.inet_aton(ip_address)
         return True
-    except socket.error:
+    except socket.error as e:
+        logger.error
+     (f”IP validation error: {e}”)
         return False
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Asynchronous Network Test Script")
-    parser.add_argument("--test_type", choices=['http', 'tcp', 'icmp', 'syn'], required=True, help="Type of test to perform")
-    parser.add_argument("--target_host", required=True, help="Target host for testing")
-    parser.add_argument("--target_port", type=int, default=80, help="Target port for testing")
-    parser.add_argument("--num_requests", type=int, default=100, help="Number of requests to send")
-    parser.add_argument("--verbose", action='store_true', help="Enable verbose logging")
-    return parser.parse_args()
+ef parse_args():
+parser = argparse.ArgumentParser(description=“Asynchronous Network Test Script”)
+parser.add_argument(”–test_type”, choices=[‘http’, ‘tcp’, ‘icmp’, ‘syn’], required=True, help=“Type of test to perform”)
+parser.add_argument(”–target_host”, required=True, help=“Target host for testing (URL for HTTP, IP for others)”)
+parser.add_argument(”–target_port”, type=int, default=80, help=“Target port for TCP/SYN tests”)
+parser.add_argument(”–num_requests”, type=int, default=100, help=“Number of requests to send”)
+parser.add_argument(”–verbose”, action=‘store_true’, help=“Enable verbose logging”)
+return parser.parse_args()
 
 async def main():
-    args = parse_args()
-    configure_logging(args.verbose)
-    headers = {'User-Agent': get_random_user_agent()}
-
-    if args.test_type == "http":
-        if not validate_url(args.target_host):
-            logger.error("Invalid URL format.")
-            return
-        await async_https_get_request(args.target_host, args.num_requests, headers)
-    elif args.test_type == "tcp":
-        if not validate_ip(args.target_host):
-            logger.error("Invalid IP address format.")
-            return
-        await async_tcp_test(args.target_host, args.target_port, args.num_requests)
-    elif args.test_type == "icmp":
-        send_icmp_echo(args.target_host, args.num_requests)
-    elif args.test_type == "syn":
-        send_tcp_syn(args.target_host, args.target_port, args.num_requests)
-
-if __name__ == "__main__":
-    asyncio.run(main())
+args = parse_args()
+configure_logging(args.verbose)
+headers = {‘User-Agent’: get_random_user_agent()}
+       if args.test_type == "http":
+    if not validate_url(args.target_host):
+        logger.error("Invalid URL format.")
+        return
+    await async_https_get_request(args.target_host, args.num_requests, headers)
+elif args.test_type == "tcp":
+    if not validate_ip(args.target_host):
+        logger.error("Invalid IP address format.")
+        return
+    await async_tcp_test(args.target_host, args.target_port, args.num_requests)
+elif args.test_type == "icmp":
+    send_icmp_echo(args.target_host, args.num_requests)
+elif args.test_type == "syn":
+    send_tcp_syn(args.target_host, args.target_port, args.num_requests)
+if name == “main”:
+asyncio.run(main())
+     
