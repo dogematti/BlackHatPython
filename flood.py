@@ -12,13 +12,12 @@ from urllib.parse import urlparse
 
 # ASCII Art Section
 ASCII_ART = r"""
- _____ __  __ __ _____ __ _____     ___ __  __    
-(_  | |__)|_ (_ (_  | |_ (_  |  | /  \  \|    
-__) | | \ |____)__) | |____) |        | \__/\__/|__ 
-  __         __  __  __      ______          
-|__)\_/.  |  \/  _ |_ |\/| /\ |  | |         
-|__) | .  |__/\__/\__)|__|  |/--\|  | |         
-
+ _____ __  __ __ _____ __ _____     ___ __  __
+(_  | |__)|_ (_ (_  | |_ (_  |  | /  \  \|
+__) | | \ |____)__) | |____) |        | \__/\__/|__
+  __         __  __  __      ______
+|__)\_/.  |  \/  _ |_ |\/| /\ |  | |
+|__) | .  |__/\__/\__)|__|  |/--\|  | |
 """
 
 # User Agents List
@@ -118,8 +117,13 @@ def validate_ip(ip_address):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Asynchronous Network Test Script")
-    # ... (rest of your argument parsing code)
+    parser.add_argument("--test_type", required=True, choices=["http", "tcp", "icmp", "syn"], help="Type of test to perform")
+    parser.add_argument("--target_host", required=True, help="Target URL (for HTTP) or IP address (for TCP, ICMP, SYN)")
+    parser.add_argument("--target_port", type=int, help="Target port (for TCP and SYN)")
+    parser.add_argument("--num_requests", type=int, default=1, help="Number of requests or connections to send")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     return parser.parse_args()
+
 
 async def main():
     args = parse_args()
@@ -139,7 +143,7 @@ async def main():
             return
         await async_tcp_test(args.target_host, args.target_port, args.num_requests)
     elif args.test_type == "icmp":
-        if not validate_ip(args.target_host):  
+        if not validate_ip(args.target_host):
             logger.error("Invalid IP address format.")
             return
         send_icmp_echo(args.target_host, args.num_requests)
@@ -148,6 +152,7 @@ async def main():
             logger.error("Invalid IP address format.")
             return
         send_tcp_syn(args.target_host, args.target_port, args.num_requests)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
